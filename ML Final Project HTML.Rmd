@@ -1,0 +1,98 @@
+---
+title: "Final Project for ML"
+author: "lovenumbers123"
+date: "March 17, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1. Synopsis
+
+Using devices such as Jawbone Up, Nike FuelBand or Fitbit, it is now possible to collect a large amount of data about personal activity relatively inexpensively.  These type of devices are part of the quantified self movement.  One thing that people regularly do is quantify how uch of a particular activity they do, but they rarely quantify how well they do it.  In this project, the goal will be gto use data from accelerometers on the belt, forearm, arm and dumbell of six participants.  They were asked to erpform barbell lifes correctly and incorrectly in five different ways.
+
+The training data for this project are available here:
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+The test data are available here:
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The goal of your project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. You may use any of the other variables to predict with. You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did. You will also use your prediction model to predict 20 different test cases.
+
+## 2.  Data Processing
+### Loading  libraries, data and cleansing data
+
+```{r}
+library(caret)
+library(rpart)
+library (rattle)
+library(ggplot2)
+library(dplyr)
+library(randomForest)
+trf <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+tf <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+trd <- read.csv(url(trf), na.strings=c("NA","#DIV/0!",""))
+td <- read.csv(url(tf), na.strings=c("NA","#DIV/0!",""))
+```
+
+#### Review data
+```{r}
+str(trd)
+```
+
+#### Remove NA's, near zero variances and other data not pertinent to assignment
+```{r}
+rna <- sapply(trd, function(x) mean(is.na(x))) > 0.95
+trd <- trd[, rna==F]
+td <- td[, rna==F]
+
+rnzv <- nearZeroVar(trd)
+trd <- trd[, -rnzv]
+td <- td[, -rnzv]
+
+trd <- trd[, -c(1:6)]
+td <- td[, -c(1:6)]
+dim(trd)
+
+```
+
+#### Splitting training data into sets for prediction and out-of-sample errors
+```{r}
+set.seed(711)
+trsp <- createDataPartition(trd$classe, p=0.6, list=FALSE)
+trs <- trd[trsp, ]
+ts <- trd[-trsp, ]
+dim(trs); dim(ts)
+```
+
+## 3. Modeling
+#### Classification Tree
+```{r}
+kfc <- trainControl(method = "cv", number = 5)
+fitkfc <- train(classe ~., data = trs, method = "rpart", trControl = kfc)
+pdt <- rpart(classe ~., data=trs, method="class")
+print (fitkfc, digits = 5)
+fancyRpartPlot(pdt)
+prp <- predict(fitkfc, trs)
+crp <- confusionMatrix(trs$classe, prp)
+(arp <- crp$overall[1])
+```
+
+#### Random Forest
+```{r}
+fitrf <- train(classe ~., data = trs, method = "rf", trControl = kfc)
+print (fitrf, digits = 5)
+prf <- predict(fitrf, trs)
+(crf <- confusionMatrix(trs$classe, prf))
+(arf <- crf$overall[1])
+
+```
+
+#### Predict Test Set
+```{r}
+(predict(fitrf, td))
+```
+
+## 4. Conclusion
+The random forest method is more accurate than the classification tree.  The accuracy rate rounds to 100%; whereas the classification tree is only 49%.  The random forest method takes a long time to process.  So, if there is a time constraint, additional methods should be researched to determine if there is a speedier method.
